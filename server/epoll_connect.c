@@ -102,14 +102,16 @@ void free_event_by_index(int index)
 	}
 }
 
-int get_fd_by_event_index(int index)
+/*
+ * 返回socket连接号
+ */
+int 
+get_fd_by_event_index(int index)
 {
-	if (index >=0 && index < MAX_EVENTS)
-	{
+	if (index >=0 && index < MAX_EVENTS) {
 		return epoll_connect_client[index].connect_fd;
 	}
-	else
-	{
+	else {
 		return -1;
 	}
 }

@@ -44,43 +44,58 @@ static void connect_total_count_opration(BOOL add_or_subract, int value)
 	pthread_mutex_unlock(&connect_total_count_mutex);
 }
 
-static void signal_handler_reboot(int32_t theSignal)
+/*
+ * 当接收到SIGPIPE，SIGTERM，SIGKILL信号时执行的回调函数
+ */
+static void 
+signal_handler_reboot(int32_t theSignal)
 {
 	int i;
 	int sockfd;
 	char log_str_buf[LOG_STR_BUF_LEN];
+    /*忽略SIGPIPE信号*/
 	signal(SIGPIPE, SIG_IGN);
-	if (SIGKILL == theSignal || SIGTERM == theSignal) //we can know when system excute child thread is end
-	{
-		snprintf(log_str_buf, LOG_STR_BUF_LEN, "receive kill signal exit the server.");
+    /*we can know when system excute child thread is end*/
+    /*当接收到退出或杀死进程的信号时*/
+	if (SIGKILL == theSignal || SIGTERM == theSignal) {
+		snprintf(log_str_buf, LOG_STR_BUF_LEN, 
+                    "receive kill signal exit the server.");
 		LOG_INFO(LOG_LEVEL_FATAL, log_str_buf);
-		if (listen_fd != -1)
-		{
+        /*关闭监听端口文件描述符*/
+		if (listen_fd != -1) {
+            /*关闭socket*/
 			closesocket(listen_fd);
 			listen_fd = -1;
 		}
+        /*设置退出标志位*/
 		exit_flag = 1;
+        /*设置接收到退出信号标志位*/
 		exit_accept_flag = 1;
-		for (i = 0; i < MAX_EVENTS; i++)
-		{
+        /*循环关闭socket*/
+		for (i = 0; i < MAX_EVENTS; i++) {
 			sockfd = get_fd_by_event_index(i);
-			if (sockfd != -1)
-			{
+			if (sockfd != -1) {
 				closesocket(sockfd);
 			}
 		}
+/*若本机有mysql则关闭mysql销毁连接池*/
 #if CONNECT_TO_SQL_SUCCESS
 	sql_pool_destroy();
 #endif
-	}
-	else if (SIGPIPE == theSignal)
-	{
+	} else if (SIGPIPE == theSignal) {
+        /*
+         * SIGPIPE信号是当客户端连接中断，但服务端还在不停发送数据到客户端时，
+         * 系统则会下发此信号，进程收到此信号的默认操作是退出进程
+         * 因此需要屏蔽此信号，否则会导致进程非正常退出
+         */
 		LOG_INFO(LOG_LEVEL_INFO, "SIGPIPE received.\n");
 	}
 }
 
-static void closesocket(int fd)
-{
+/*
+ * 关闭socket
+ */
+static void closesocket(int fd) {
 	shutdown(fd, SHUT_RDWR);
 	close(fd);
 }
@@ -447,11 +462,16 @@ main(int argc, char *argv[])
 	//set max number of open files(also for tcp connections)
 	rl.rlim_cur = MAX_EVENTS;
 	rl.rlim_max = MAX_EVENTS;
+    /*设置可操作的socket最大连接数*/
 	setrlimit(RLIMIT_NOFILE, &rl);
+    /*更新rlim结构体*/
 	getrlimit(RLIMIT_NOFILE, &rl);
+    /*输出信息*/
 	fprintf(stderr, "cur:%d\n", (int)rl.rlim_cur);
 	fprintf(stderr, "max:%d\n", (int)rl.rlim_max);
-	snprintf(log_str_buf, LOG_STR_BUF_LEN, "information about rlimit cur:%d max:%d.\n", (int)rl.rlim_cur, (int)rl.rlim_max);
+	snprintf(log_str_buf, LOG_STR_BUF_LEN,                                    \
+                "information about rlimit cur:%d max:%d.\n",                  \
+                (int)rl.rlim_cur, (int)rl.rlim_max);
 	LOG_INFO(LOG_LEVEL_INFO, log_str_buf);
 
 	sleep(1);

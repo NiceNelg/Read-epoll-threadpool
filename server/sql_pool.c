@@ -106,14 +106,15 @@ POOL_CREATE_FAILED:
     return -1;
 }
 
-void sql_pool_destroy()
+void 
+sql_pool_destroy()
 {
 	int index;
 	for (index = 0; index < sql_sock_pool.pool_number; index ++)
 	{
-		if (NULL != sql_sock_pool.sql_pool[index].mysql_sock) // close the mysql
-		{
-			mysql_close(sql_sock_pool.sql_pool[index].mysql_sock); // close
+        /*close the mysql*/
+		if (NULL != sql_sock_pool.sql_pool[index].mysql_sock) {
+			mysql_close(sql_sock_pool.sql_pool[index].mysql_sock);
 			sql_sock_pool.sql_pool[index].mysql_sock = NULL;
 		}
 		sql_sock_pool.sql_pool[index].sql_state = DB_DISCONN;
