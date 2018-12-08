@@ -377,7 +377,8 @@ void* respons_stb_info(thpool_job_funcion_parameter *parameter, int thread_index
 }
 /*******************************************************************/
 
-int main(int argc, char *argv[])
+int 
+main(int argc, char *argv[])
 {
 	char log_file_name[128] = {0};
 	char log_str_buf[LOG_STR_BUF_LEN];
@@ -391,47 +392,55 @@ int main(int argc, char *argv[])
 	int connect_socket_fd_temp = -1;
 	int delete_pool_job_number = 0;
 
-	if (2 != argc)
-	{
+    /*检测端口号是否有输入*/
+	if (2 != argc) {
 		printf("pleanse input the port\n");
 		return 0;
 	}
+
+    /*获取端口号*/
 	port = atoi(argv[1]);
-	// read config info
-	if (read_config_info(&config_info) != 0)
-	{
-		printf("[%s %s %d] read_config_info fail.\n", __FILE__, __FUNCTION__, __LINE__);
+
+	/*读取配置信息*/
+	if (read_config_info(&config_info) != 0) {
+		printf("[%s %s %d] read_config_info fail.\n", __FILE__, 
+                    __FUNCTION__, __LINE__);
 		return -1;
 	}
+    /*将配置信息输出到屏幕*/
 	print_config_info(config_info);
 
-	signal(SIGCHLD, SIG_IGN); // Ignore the child to the end of the signal, preventing the zombie process(2015.7.17)
+    /*忽略终止信号，防止产生僵尸进程*/
+	signal(SIGCHLD, SIG_IGN); 
 
-	// init log
+	/*生成日志文件名*/
 	sprintf(log_file_name, "log_%d", port);
-	// for distinguish between different ports
+    /*将日志文件名设置到日志的私有变量中*/
 	set_log_file_name(log_file_name);
-	if (log_init() != 0)
-	{
+    /*初始化日志*/
+	if (log_init() != 0) {
 		printf("init log error\n");
 		return -1;
 	}
 	log_set_level(config_info.log_level);
 
-	// create fork
+	/*创建子进程*/
 	pid_t pidfd = fork();
-	if (pidfd < 0)
-	{
-		snprintf(log_str_buf, LOG_STR_BUF_LEN, "fork failed! errorcode = %d[%s].\n", errno, strerror(errno));
+	if (pidfd < 0) {
+		snprintf(log_str_buf, LOG_STR_BUF_LEN, 
+                    "fork failed! errorcode = %d[%s].\n", errno, 
+                    strerror(errno));
 		LOG_INFO(LOG_LEVEL_FATAL, log_str_buf);
 		log_close();
 		return (-1);
 	}
+    /*结束父进程，使子进程成为孤儿进程*/
 	if (pidfd != 0)
 	{
 		LOG_INFO(LOG_LEVEL_INFO, "parent fork over.\n");
 		exit(0);
 	}
+    /*调用setsid函数创建一个新的会话*/
 	setsid();
 	LOG_INFO(LOG_LEVEL_INFO, "children fork start.\n");
 
