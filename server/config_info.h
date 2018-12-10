@@ -21,7 +21,7 @@
 
 #define SERVER_INI_FILE				"ini.ini"
 
-
+/*配置信息字段对应的序号*/
 enum
 {
 	CON_VERSION,
@@ -32,8 +32,9 @@ enum
 	CON_MYSQL_USER_NAME,
 	CON_MYSQL_PASSWORD,
 	MAX_NO_OF_CONFIG_KEY_WORD,
-} CONFIG_INFO_KEY_WORD_ID;	//Should correspond with structure CONFIG_INFO.
+} CONFIG_INFO_KEY_WORD_ID;
 
+/*配置信息*/
 typedef struct _CONIFG_INFO
 {
 	char 				version[32];

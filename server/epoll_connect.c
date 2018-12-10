@@ -11,26 +11,31 @@
 static char log_str_buf[LOG_STR_BUF_LEN];
 static EPOLL_CONNECT epoll_connect_client[MAX_EVENTS];
 
-static void lock_event_state(int iEvent, int iLock)
+/*
+ * 上/解锁线程
+ */
+static void 
+lock_event_state(int iEvent, int iLock)
 {
 	int iRet;
 
-	if (iLock)
-	{
+	if (iLock) {
 		iRet = pthread_mutex_lock(&epoll_connect_client[iEvent].mutex);
-	}
-	else
-	{
+	} else {
 		iRet = pthread_mutex_unlock(&epoll_connect_client[iEvent].mutex);
 	}
-	if (iRet != 0)
-	{
-		snprintf(log_str_buf, LOG_STR_BUF_LEN, "Event[%d] mutex Lock[%d]\n", iEvent, iLock);
+	if (iRet != 0) {
+		snprintf(log_str_buf, LOG_STR_BUF_LEN, "Event[%d] mutex Lock[%d]\n", 
+                    iEvent, iLock);
 		log_string(LOG_LEVEL_ERROR, log_str_buf);
 	}
 }
 
-void init_epoll_connect(void)
+/*
+ * 初始化epoll连接
+ */
+void 
+init_epoll_connect(void)
 {
 	int iIndex;
 	int iRet;
@@ -40,30 +45,37 @@ void init_epoll_connect(void)
 	{
 		epoll_connect_client[iIndex].connect_fd = -1;
 		epoll_connect_client[iIndex].socket_status = 0;
+        /*初始化线程锁*/
 		iRet = pthread_mutex_init(&epoll_connect_client[iIndex].mutex, NULL);
-		if (iRet != 0)
-		{
-			snprintf(log_str_buf, LOG_STR_BUF_LEN, "file connection.c Event[%d] mutex init\n", iRet);
+		if (iRet != 0) {
+			snprintf(log_str_buf, LOG_STR_BUF_LEN, 
+                        "file connection.c Event[%d] mutex init\n", iRet);
 			log_string(LOG_LEVEL_INFO, log_str_buf);
 		}
 	}
 }
 
-int get_epoll_connect_free_event_index(void)
+/*
+ * 获取空闲的epoll
+ */
+int 
+get_epoll_connect_free_event_index(void)
 {
 	int iIndex;
 
-	for (iIndex = 0; iIndex < MAX_EVENTS; iIndex++)
-	{
-		if (epoll_connect_client[iIndex].connect_fd == -1)
-		{
+	for (iIndex = 0; iIndex < MAX_EVENTS; iIndex++) {
+		if (epoll_connect_client[iIndex].connect_fd == -1) {
 			return iIndex;
 		}
 	}
 	return (-1);
 }
 
-void init_epoll_connect_by_index(int iEvent, int iConnectFD, char *uiClientIP)
+/*
+ * 根据序列初始化epoll
+ */
+void 
+init_epoll_connect_by_index(int iEvent, int iConnectFD, char *uiClientIP)
 {
 	time_t now;
 
@@ -77,24 +89,29 @@ void init_epoll_connect_by_index(int iEvent, int iConnectFD, char *uiClientIP)
 	lock_event_state(iEvent, 0);
 }
 
-int get_matched_event_index_by_fd(int iConnectFD)
+/*
+ * 获取事件执行函数
+ */
+int
+get_matched_event_index_by_fd(int iConnectFD)
 {
 	int iIndex;
 
-	for (iIndex = 0; iIndex < MAX_EVENTS; iIndex++)
-	{
-		if (epoll_connect_client[iIndex].connect_fd == iConnectFD)
-		{
+	for (iIndex = 0; iIndex < MAX_EVENTS; iIndex++) {
+		if (epoll_connect_client[iIndex].connect_fd == iConnectFD) {
 			return iIndex;
 		}
 	}
 	return (-1);
 }
 
-void free_event_by_index(int index)
+/*
+ * 重置指定的epoll
+ */
+void 
+free_event_by_index(int index)
 {
-	if (index >=0 && index < MAX_EVENTS)
-	{
+	if (index >=0 && index < MAX_EVENTS) {
 		lock_event_state(index, 1);
 		epoll_connect_client[index].connect_fd = -1;
 		epoll_connect_client[index].socket_status = 0;
@@ -116,14 +133,15 @@ get_fd_by_event_index(int index)
 	}
 }
 
-time_t get_event_connect_time_by_index(int index)
+/*
+ * 返回socket上次接收数据的时间
+ */
+time_t 
+get_event_connect_time_by_index(int index)
 {
-	if (index >=0 && index < MAX_EVENTS)
-	{
+	if (index >=0 && index < MAX_EVENTS) {
 		return epoll_connect_client[index].now;
-	}
-	else
-	{
+	} else {
 		time_t now;
 		time(&now);
 		return now;

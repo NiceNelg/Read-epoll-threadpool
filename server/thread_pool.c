@@ -16,79 +16,80 @@ static thpool_job_t* thpool_jobqueue_peek(thpool_t* tp_p);
 static void thpool_jobqueue_empty(thpool_t* tp_p);
 
 static int thpool_keepalive = 1;
-/* create a mute and initialized */
-pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER; /* used to serialize queue access */
+/*初始化一个线程锁*/
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 /**
- * thread pool initialize
- * thread_pool_numbers: the thread pool number(the number of concurrent threads)
+ * 初始化线程池
  */
-thpool_t *thpool_init(int thread_pool_numbers)
+thpool_t *
+thpool_init(int thread_pool_numbers)
 {
 	int index = 0;
     thpool_t *thpool = NULL;
 
-    if(!thread_pool_numbers || thread_pool_numbers < 1)
-    {
+    if(!thread_pool_numbers || thread_pool_numbers < 1) {
         thread_pool_numbers = 1;
     }
 
-    //allocate memory for thread pool
+    /*allocate memory for thread pool*/
     thpool = (thpool_t*) malloc(sizeof(thpool_t));
-    if(thpool == NULL)
-    {
+    if(thpool == NULL) {
         printf("malloc thpool_t error");
         return NULL;
     }
 
-    //distribution the thread number
+    /*distribution the thread number*/
     thpool->threadsN = thread_pool_numbers;
-    thpool->threads = (pthread_t*) malloc(thread_pool_numbers * sizeof(pthread_t));
-    if(thpool->threads == NULL)
-    {
+    thpool->threads = (pthread_t*) malloc(thread_pool_numbers * 
+                sizeof(pthread_t));
+    if(thpool->threads == NULL) {
         printf("malloc thpool->threads error");
         return NULL;
     }
 
-    // initialize job queue
-    if(thpool_jobqueue_init(thpool))
-    {
+    /*initialize job queue*/
+    if(thpool_jobqueue_init(thpool)) {
         return NULL;
     }
 
     thpool->jobqueue->queueSem = (sem_t*)malloc(sizeof(sem_t));
-    sem_init(thpool->jobqueue->queueSem, 0, 0); // value start 0
-    for(index = 0; index < thread_pool_numbers; index++)
-    {
-    	thpool_thread_parameter *thead_paramter = (thpool_thread_parameter*) malloc(sizeof(thpool_thread_parameter));;
+    /*从0开始*/
+    sem_init(thpool->jobqueue->queueSem, 0, 0);
+    /*
+     * 创建线程
+     */
+    for(index = 0; index < thread_pool_numbers; index++) {
+    	thpool_thread_parameter *thead_paramter = 
+            (thpool_thread_parameter*) malloc(sizeof(thpool_thread_parameter));
     	thead_paramter->thpool = thpool;
     	thead_paramter->thread_index = index;
-        pthread_create(&(thpool->threads[index]), NULL, (void *)thpool_thread_do, (void*)thead_paramter);
+        pthread_create(&(thpool->threads[index]), NULL, 
+                    (void *)thpool_thread_do, (void*)thead_paramter);
     }
     return thpool;
 }
 
-void thpool_destroy(thpool_t* tp_p)
+/*
+ * 销毁线程池
+ */
+void 
+thpool_destroy(thpool_t* tp_p)
 {
     int i ;
     thpool_keepalive = 0;
-    if (NULL == tp_p)
-    {
+    if (NULL == tp_p) {
     	return;
     }
-    for(i = 0; i < (tp_p->threadsN); i++)
-    {
-        if(sem_post(tp_p->jobqueue->queueSem))
-        {
+    for(i = 0; i < (tp_p->threadsN); i++) {
+        if(sem_post(tp_p->jobqueue->queueSem)) {
             fprintf(stderr, "thpool_destroy(): Could not bypass sem_wait()\n");
         }
     }
-    if(sem_post(tp_p->jobqueue->queueSem) != 0)
-    {
+    if(sem_post(tp_p->jobqueue->queueSem) != 0) {
         fprintf(stderr, "thpool_destroy(): Could not destroy semaphore\n");
     }
-    for(i = 0;i < (tp_p->threadsN); i++)
-    {
+    for(i = 0;i < (tp_p->threadsN); i++) {
         pthread_join(tp_p->threads[i], NULL);
     }
     thpool_jobqueue_empty(tp_p);
@@ -99,12 +100,14 @@ void thpool_destroy(thpool_t* tp_p)
     free (tp_p);
 }
 
-/* Initialize queue */
-static int thpool_jobqueue_init(thpool_t* tp_p)
+/*
+ * 初始化线程工作队列
+ */
+static int 
+thpool_jobqueue_init(thpool_t* tp_p)
 {
-    tp_p->jobqueue = (thpool_jobqueue*)malloc(sizeof(thpool_jobqueue));      /* MALLOC job queue */
-    if (tp_p->jobqueue == NULL)
-    {
+    tp_p->jobqueue = (thpool_jobqueue*)malloc(sizeof(thpool_jobqueue));
+    if (tp_p->jobqueue == NULL) {
     	return -1;
     }
     tp_p->jobqueue->tail = NULL;
@@ -113,37 +116,38 @@ static int thpool_jobqueue_init(thpool_t* tp_p)
     return 0;
 }
 
-static void thpool_thread_do(thpool_thread_parameter *thread_paramter)
+/*
+ * 线程的运行函数
+ */
+static void 
+thpool_thread_do(thpool_thread_parameter *thread_paramter)
 {
 	thpool_t *tp_p = thread_paramter->thpool;
 	int index = thread_paramter->thread_index;
 	printf("index = %d\n", index);
-    while(thpool_keepalive ==1)
-    {
-        if(sem_wait(tp_p->jobqueue->queueSem)) //thread block, until have data come
-        {
+    while(thpool_keepalive ==1) {
+        /*thread block, until have data come*/
+        if(sem_wait(tp_p->jobqueue->queueSem)) {
             perror("thpool_thread_do(): Waiting for semaphore");
             exit(1);
         }
-        if(thpool_keepalive)
-        {
+        if(thpool_keepalive) {
             FUNC function;
-//            void *arg_buff;
+            /*void *arg_buff;*/
             thpool_job_t *job_p;
             pthread_mutex_lock(&mutex);
             job_p = thpool_jobqueue_peek(tp_p);
             function = job_p->function;
-//            arg_buff = job_p->arg;
-            if(thpool_jobqueue_removelast(tp_p))
-            {
+            /*arg_buff = job_p->arg;*/
+            if(thpool_jobqueue_removelast(tp_p)) {
                return ;
             }
             pthread_mutex_unlock(&mutex);
-            function((void *)&job_p->arg, index); // our function
-            free(job_p); // free the
-        }
-        else
-        {
+            /*执行工作*/
+            function((void *)&job_p->arg, index);
+            /*释放工作结构体内存*/
+            free(job_p);
+        } else {
         	free(thread_paramter);
             return ;
         }
@@ -151,24 +155,29 @@ static void thpool_thread_do(thpool_thread_parameter *thread_paramter)
     free(thread_paramter);
 }
 
-//get the queue tail
-static thpool_job_t* thpool_jobqueue_peek(thpool_t* tp_p)
+/*
+ * get the queue tail
+ * 获取队列最后一个工作
+ */
+static 
+thpool_job_t* thpool_jobqueue_peek(thpool_t* tp_p)
 {
     return tp_p->jobqueue->tail;
 }
 
-/////删锟斤拷锟斤拷械锟斤拷锟斤拷一锟斤拷锟节碉拷
-static int thpool_jobqueue_removelast(thpool_t* tp_p)
+/*
+ * 移除队列最后一个工作
+ */
+static int 
+thpool_jobqueue_removelast(thpool_t* tp_p)
 {
 	int reval = 0;
     thpool_job_t *theLastJob = NULL;
-    if (tp_p == NULL)
-    {
+    if (tp_p == NULL) {
         return -1;
     }
     theLastJob = tp_p->jobqueue->tail;
-    switch (tp_p->jobqueue->jobN)
-    {
+    switch (tp_p->jobqueue->jobN) {
         case 0:
             return -1;
         case 1:
@@ -185,15 +194,18 @@ static int thpool_jobqueue_removelast(thpool_t* tp_p)
     return 0;
 }
 
-static void thpool_jobqueue_add(thpool_t *tp_p, thpool_job_t *newjob_p)
+/*
+ * 添加新工作到队列
+ */
+static void 
+thpool_jobqueue_add(thpool_t *tp_p, thpool_job_t *newjob_p)
 {
 	int reval = 0;
     thpool_job_t *oldFirstJob = tp_p->jobqueue->head;
 
     newjob_p->next = NULL;
     newjob_p->prev = NULL;
-    switch(tp_p->jobqueue->jobN)
-    {
+    switch(tp_p->jobqueue->jobN) {
         case 0:
             tp_p->jobqueue->head = newjob_p;
             tp_p->jobqueue->tail = newjob_p;
@@ -211,21 +223,21 @@ static void thpool_jobqueue_add(thpool_t *tp_p, thpool_job_t *newjob_p)
     return;
 }
 
-// add to thread pool
-int thpool_add_work(thpool_t* tp_p, void *(*function_p)(void* arg, int index), /*void *arg_p*/int socket_fd, char *recev_buffer)
+/*add to thread pool*/
+int thpool_add_work(thpool_t* tp_p, void *(*function_p)(void* arg, int index), 
+            int socket_fd, char *recev_buffer)
 {
     thpool_job_t *newjob  = (thpool_job_t*) malloc(sizeof(thpool_job_t));
     time_t now;
 
     time(&now);
-    if(newjob == NULL)
-    {
+    if(newjob == NULL) {
         fprintf(stderr, "thpool_add_work(): Could not allocate memory for new job\n");
         return -1;
     }
-    newjob ->function = function_p;
+    newjob->function = function_p;
     newjob->job_add_time = now;
-//    newjob ->arg      = arg_p;
+    /*newjob ->arg = arg_p;*/
     memcpy(newjob->arg.recv_buffer, recev_buffer, BUFFER_SIZE);
     newjob->arg.fd = socket_fd;
     pthread_mutex_lock(&mutex);
@@ -235,13 +247,15 @@ int thpool_add_work(thpool_t* tp_p, void *(*function_p)(void* arg, int index), /
     return 0;
 }
 
-// clean queue
-static void thpool_jobqueue_empty(thpool_t* tp_p)
+/*
+ * clean queue
+ */
+static void 
+thpool_jobqueue_empty(thpool_t* tp_p)
 {
     thpool_job_t *curjob = tp_p->jobqueue->tail;
 
-    while (tp_p->jobqueue->jobN)
-    {
+    while (tp_p->jobqueue->jobN) {
         tp_p->jobqueue->tail = curjob->prev;
         free (curjob);
         curjob = tp_p->jobqueue->tail;
@@ -251,44 +265,43 @@ static void thpool_jobqueue_empty(thpool_t* tp_p)
     tp_p->jobqueue->tail = NULL;
 }
 
-int get_jobqueue_number(thpool_t* tp_p)
+/*
+ * 获取队列数量
+ */
+int 
+get_jobqueue_number(thpool_t* tp_p)
 {
-	if (NULL != tp_p && NULL != tp_p->jobqueue)
-	{
+	if (NULL != tp_p && NULL != tp_p->jobqueue) {
 		return tp_p->jobqueue->jobN;
-	}
-	else
-	{
+	} else {
 		return 0;
 	}
 }
 
-int delete_timeout_job(thpool_t* tp_p, int time_out)
+/*
+ * 删除超时工作
+ */
+int 
+delete_timeout_job(thpool_t* tp_p, int time_out)
 {
 	int delete_number = 0;
 	time_t now;
 	thpool_job_t *curjob = tp_p->jobqueue->tail;
 
 	time(&now);
-	if (NULL != tp_p && NULL != tp_p->jobqueue)
-	{
+	if (NULL != tp_p && NULL != tp_p->jobqueue) {
 		pthread_mutex_lock(&mutex);
-		while (tp_p->jobqueue->jobN)
-		{
-			if (NULL == curjob)
-			{
+		while (tp_p->jobqueue->jobN) {
+			if (NULL == curjob) {
 				break;
-			}
-			if (now - curjob->job_add_time > time_out)
-			{
+			} 
+            if (now - curjob->job_add_time > time_out) {
 				tp_p->jobqueue->tail = curjob->prev;
 				free (curjob);
 				curjob = tp_p->jobqueue->tail;
 				(tp_p->jobqueue->jobN)--;
 				delete_number++;
-			}
-			else
-			{
+			} else {
 				break;
 			}
 		}

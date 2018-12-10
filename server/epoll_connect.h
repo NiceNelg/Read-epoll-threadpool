@@ -13,12 +13,17 @@
 #define LISTENQ            4096
 #define	IP_ADDR_LENGTH	   20
 
-typedef struct _epoll_connect_struct_
-{
+/*epoll客户端连接结构体*/
+typedef struct _epoll_connect_struct_ {
 	int connect_fd;
-	int socket_status; //0--initial,1--Live,2--need send,3--Need Close
+    /*
+     * 0--初始化
+     * 1--在线
+     * 2--有数据需要发送
+     * 3--等待关闭
+     */
+	int socket_status; 
 	time_t now;
-	/*********************/
 	/*The Client IP address and PORT : TCP*/
 	char client_ip_addr[IP_ADDR_LENGTH];
 	pthread_mutex_t mutex;

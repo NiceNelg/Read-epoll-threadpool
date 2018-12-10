@@ -68,7 +68,11 @@ static int create_connect(POOL_SQL_SOCK *pool_sql_sock, SQL_SOCK_NODE *node)
 	return ret;
 }
 
-int sql_pool_create(int connect_pool_number)
+/*
+ * 创建mysql连接池
+ */
+int 
+sql_pool_create(int connect_pool_number)
 {
     int index = 0;
     BOOL re_connect = TRUE;
@@ -90,9 +94,9 @@ int sql_pool_create(int connect_pool_number)
     mysql_init(&fd_temp);
 
     // create connect
-    for(index = 0; index < connect_pool_number; index ++)
-    {
-		if(-1 == create_connect(&sql_sock_pool, &(sql_sock_pool.sql_pool[index])))
+    for(index = 0; index < connect_pool_number; index ++) {
+		if(-1 == create_connect(&sql_sock_pool, 
+                        &(sql_sock_pool.sql_pool[index])))
 		{
 			goto POOL_CREATE_FAILED;
 		}
